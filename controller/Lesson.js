@@ -124,6 +124,20 @@ export const CompleteLesson = async (req, res) => {
         .json({ error: "해당 학습 기록을 찾을 수 없습니다." });
     }
 
+    // 완료된 강의 정보를 가져오기
+    const [completedLessons] = await pool.query(
+      `SELECT lesson_id, status FROM user_lessons WHERE user_id = ? AND status = 'completed'`,
+      [userId]
+    );
+
+    // 완료된 강의 정보를 웹소켓으로 전송
+    if (req.io) {
+      req.io.emit("progressUpdated", completedLessons);
+      console.log("수업 완료 이벤트 전송됨", completedLessons);
+    } else {
+      console.error("WebSocket(io) 객체가 정의되지 않음");
+    }
+
     res.status(200).json({ message: "수강 완료" });
   } catch (err) {
     console.error("서버 오류:", err);
@@ -145,8 +159,13 @@ export const progressTopic = async (req, res) => {
         WHERE ul.user_id = ?`,
       [userId]
     );
+    // if (req.io) {
+    //   req.io.emit("progressUpdated", result);
+    //   console.log("이벤트 전송됨", result);
+    // } else {
+    //   console.error("WebSocket(io) 객체가 정의되지 않음음");
+    // }
     res.status(200).json(result);
-    console.log(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "진행 상태를 가져오는 데 실패했습니다." });
@@ -162,7 +181,7 @@ export const progressCategory = async (req, res) => {
   try {
     const completedCategories = await fetchProgressCategory(userId);
     res.status(200).json(completedCategories);
-    console.log(completedCategories);
+    // console.log(completedCategories);
   } catch (err) {
     console.error(err);
     res
