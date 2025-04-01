@@ -40,12 +40,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// 소켓 연결 처리
 io.on("connection", (socket) => {
   console.log("클라이언트 연결됨");
-  socket.on("categoryUpdated", () => {
-    console.log("📢 카테고리 업데이트 이벤트 수신! 데이터 새로고침 중...");
-  });
+
   socket.on("disconnect", () => {
     console.log("클라이언트 연결 종료됨");
   });
