@@ -36,6 +36,7 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   const { loginId, password } = req.body;
+  console.log("로그인 요청:", req.body);
   try {
     const [users] = await pool.query("SELECT * FROM users WHERE login_id = ?", [
       loginId,
@@ -75,6 +76,7 @@ export const login = async (req, res) => {
         res.cookie("accessToken", accessToken, {
           httpOnly: true,
           secure: false,
+          sameSite: "None",
         });
 
         res.status(200).json({
@@ -199,28 +201,34 @@ export const loginSuccess = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
-  const { userId } = req.body;
-  console.log("로그아웃 요청 도착", req.body);
+  const token = req.cookies.accessToken;
 
-  if (!userId) {
-    return res.status(400).json({ message: "사용자 ID가 필요합니다." });
+  if (!token) {
+    return res.status(401).json({ message: "로그인 필요" });
   }
 
   try {
+    const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
+    const userId = decoded.id;
+
     const [result] = await pool.query(
       "DELETE FROM refresh_tokens WHERE user_id = ?",
       [userId]
     );
+
     if (result.affectedRows === 0) {
       return res
         .status(404)
         .json({ message: "해당 사용자에 대한 Refresh Token이 없습니다." });
     }
+
     res.clearCookie("accessToken", {
       path: "/",
       httpOnly: true,
       secure: false,
+      sameStie: "None",
     });
+
     res.status(200).json({ message: "Logout Success" });
   } catch (error) {
     console.error("로그아웃 처리 중 오류:", error);
