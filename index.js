@@ -15,12 +15,16 @@ import {
   lessonTopic,
   startLesson,
   CompleteLesson,
-  progressTopic,
-  progressCategory,
 } from "./controller/Lesson.js";
 import { checkQuiz, generateQuiz } from "./controller/Quiz.js";
+import { lessonSaved, fetchSavedLesson } from "./controller/Review.js";
 import authenticateToken from "./middlewares/authMiddleware.js";
 import { Server as SocketIO } from "socket.io";
+import {
+  progressCategory,
+  progressTopic,
+  continueLesson,
+} from "./controller/Progress.js";
 
 dotenv.config();
 const app = express();
@@ -73,19 +77,16 @@ app.get("/lessons/:level_id/categories", lessonLevel);
 app.get("/lessons/:category_id/topics", lessonTopic);
 app.post("/lessons/start", authenticateToken, startLesson);
 app.put("/lessons/complete", authenticateToken, CompleteLesson);
-app.post("/lessons/progress/categories", authenticateToken, progressCategory);
-app.post("/lessons/progress/topics", authenticateToken, progressTopic);
 
 app.get("/quiz/generate", authenticateToken, generateQuiz);
 app.post("/quiz/check", authenticateToken, checkQuiz);
 
-app.use((req, res, next) => {
-  if (req.url.startsWith("/ws")) {
-    res.status(400).send("WebSocket 전용 엔드포인트입니다.");
-  } else {
-    next();
-  }
-});
+app.post("/review/save", authenticateToken, lessonSaved);
+app.get("/review/lessons", authenticateToken, fetchSavedLesson);
+
+app.get("/progress/continue", authenticateToken, continueLesson);
+app.post("/progress/categories", authenticateToken, progressCategory);
+app.post("/progress/topics", authenticateToken, progressTopic);
 
 server.listen(process.env.PORT, () => {
   console.log(`Listening on localhost: ${process.env.PORT}`);

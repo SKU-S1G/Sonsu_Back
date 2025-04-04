@@ -54,7 +54,7 @@ export const login = async (req, res) => {
             email: userInfo.email,
           },
           process.env.ACCESS_SECRET,
-          { expiresIn: "24m", issuer: "suk" }
+          { expiresIn: "60m", issuer: "suk" }
         );
 
         const refreshToken = jwt.sign(
@@ -141,7 +141,7 @@ export const refreshToken = async (req, res) => {
               email: refreshTokenData.email,
             },
             process.env.ACCESS_SECRET,
-            { expiresIn: "24m", issuer: "suk" }
+            { expiresIn: "60m", issuer: "suk" }
           );
 
           res.cookie("accessToken", newAccessToken, {
