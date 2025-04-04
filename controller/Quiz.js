@@ -13,13 +13,13 @@ export const generateQuiz = async (req, res) => {
 
     const [lessonData] = await pool.query(
       `SELECT ul.userLesson_id, l.lesson_id, l.word
-             FROM user_lessons ul
-             JOIN lessons l ON ul.lesson_id = l.lesson_id
-             WHERE ul.user_id = ? 
-             AND DATE(ul.lesson_date) = '2025-03-14'
-             AND ul.status = 'completed'
-             ORDER BY RAND()  
-             LIMIT 5`,
+      FROM user_lessons ul
+      JOIN lessons l ON ul.lesson_id = l.lesson_id
+      WHERE ul.user_id = ? 
+      AND DATE(ul.lesson_date) = '2025-04-01'
+      AND ul.status = 'completed'
+      ORDER BY RAND()  
+      LIMIT 5`,
       [userId]
     );
 
