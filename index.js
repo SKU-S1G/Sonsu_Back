@@ -17,7 +17,11 @@ import {
   CompleteLesson,
 } from "./controller/Lesson.js";
 import { checkQuiz, generateQuiz } from "./controller/Quiz.js";
-import { lessonSaved, fetchSavedLesson } from "./controller/Review.js";
+import {
+  lessonSaved,
+  fetchSavedLesson,
+  deleteSavedLesson,
+} from "./controller/Review.js";
 import authenticateToken from "./middlewares/authMiddleware.js";
 import { Server as SocketIO } from "socket.io";
 import {
@@ -83,6 +87,7 @@ app.post("/quiz/check", authenticateToken, checkQuiz);
 
 app.post("/review/save", authenticateToken, lessonSaved);
 app.get("/review/lessons", authenticateToken, fetchSavedLesson);
+app.delete("/review/delete/:saveId", authenticateToken, deleteSavedLesson);
 
 app.get("/progress/continue", authenticateToken, continueLesson);
 app.post("/progress/categories", authenticateToken, progressCategory);
