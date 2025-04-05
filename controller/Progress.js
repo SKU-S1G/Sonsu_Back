@@ -8,7 +8,7 @@ export const continueLesson = async (req, res) => {
   }
   try {
     const [lastLesson] = await pool.query(
-      `SELECT * FROM lessons l JOIN user_lessons ul ON l.lesson_id = ul.lesson_id WHERE user_id = ?
+      `SELECT * FROM lessons l JOIN user_lessons ul ON l.lesson_id = ul.lesson_id WHERE user_id = ? AND ul.status = 'completed'
           ORDER BY ul.lesson_date DESC LIMIT 1 `,
       [userId]
     );
