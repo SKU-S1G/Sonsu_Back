@@ -16,7 +16,12 @@ import {
   startLesson,
   CompleteLesson,
 } from "./controller/Lesson.js";
-import { checkQuiz, generateQuiz } from "./controller/Quiz.js";
+import {
+  checkQuiz,
+  deleteWrongAnswers,
+  generateQuiz,
+  wrongAnswers,
+} from "./controller/Quiz.js";
 import {
   lessonSaved,
   fetchSavedLesson,
@@ -84,6 +89,12 @@ app.put("/lessons/complete", authenticateToken, CompleteLesson);
 
 app.get("/quiz/generate", authenticateToken, generateQuiz);
 app.post("/quiz/check", authenticateToken, checkQuiz);
+app.get("/quiz/wrong", authenticateToken, wrongAnswers);
+app.delete(
+  "/quiz/delete/:wrongAnswer_id",
+  authenticateToken,
+  deleteWrongAnswers
+);
 
 app.post("/review/save", authenticateToken, lessonSaved);
 app.get("/review/lessons", authenticateToken, fetchSavedLesson);

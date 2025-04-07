@@ -16,7 +16,7 @@ export const generateQuiz = async (req, res) => {
              FROM user_lessons ul
              JOIN lessons l ON ul.lesson_id = l.lesson_id
              WHERE ul.user_id = ? 
-             AND DATE(ul.lesson_date) = '2025-04-01'
+             AND DATE(ul.lesson_date) = '2025-03-26'
              AND ul.status = 'completed'
              ORDER BY RAND()  
              LIMIT 5`,
@@ -34,13 +34,41 @@ export const generateQuiz = async (req, res) => {
       `SELECT word FROM lessons ORDER BY RAND() LIMIT 5`
     );
 
+    const lessonIds = lessonData.map((lesson) => lesson.lesson_id);
+    // console.log(lessonIds);
+    const [animationData] = await pool.query(
+      `SELECT lesson_id, animation_path FROM lessons WHERE lesson_id IN (?)`,
+      [lessonIds]
+    );
+
     const quizData = lessonData.map((lesson, index) => {
       const isCorrect = Math.random() < 0.5;
       const wrongWord = randomLessons[index]?.word || "잘못된 단어";
+      const question = isCorrect ? lesson.word : wrongWord;
+      const animation = animationData.reduce((acc, item) => {
+        if (item.animation_path) {
+          if (item.animation_path.startsWith("gs://")) {
+            const fileName = encodeURIComponent(
+              item.animation_path.split("/").pop()
+            );
+            acc[
+              item.lesson_id
+            ] = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${fileName}?alt=media`;
+          } else {
+            acc[item.lesson_id] = item.animation_path;
+          }
+        } else {
+          acc[item.lesson_id] = null;
+        }
+        return acc;
+      }, {});
+
       return {
-        question: `${lesson.word}\n'${isCorrect ? lesson.word : wrongWord}'`,
+        question: question,
         check_answer: isCorrect,
+        userLesson_id: lesson.userLesson_id,
         lesson_id: lesson.lesson_id,
+        animation_path: animation[lesson.lesson_id] || null,
       };
     });
 
@@ -50,10 +78,11 @@ export const generateQuiz = async (req, res) => {
     );
     const sessionId = sessionResult.insertId;
 
-    const quizInsertQuery = `INSERT INTO quizzes (session_id, userLesson_id, question, check_answer) VALUES ?`;
+    const quizInsertQuery = `INSERT INTO quizzes (session_id, userLesson_id,lesson_id, question, check_answer) VALUES ?`;
     const quizValues = quizData.map((quiz, index) => [
       sessionId,
-      lessonData[index].userLesson_id,
+      quiz.userLesson_id,
+      quiz.lesson_id,
       quiz.question,
       quiz.check_answer ? 1 : 0,
     ]);
@@ -64,32 +93,12 @@ export const generateQuiz = async (req, res) => {
       [sessionId]
     );
 
-    const quizIdData = quizData.map((quiz, index) => ({
-      ...quiz,
+    const OX_quiz = quizData.map((quiz, index) => ({
       quiz_id: quizIds[index]?.quiz_id,
-    }));
-
-    const lessonIds = quizData.map((q) => q.lesson_id);
-    const [animationData] = await pool.query(
-      `SELECT lesson_id, animation_path FROM lessons WHERE lesson_id IN (?)`,
-      [lessonIds]
-    );
-
-    const animation = animationData.reduce((acc, item) => {
-      if (item.animation_path.startsWith("gs://")) {
-        let fileName = encodeURIComponent(item.animation_path.split("/").pop());
-        acc[
-          item.lesson_id
-        ] = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${fileName}?alt=media`;
-      } else {
-        acc[item.lesson_id] = item.animation_path;
-      }
-      return acc;
-    }, {});
-
-    const OX_quiz = quizIdData.map((quiz) => ({
-      ...quiz,
-      animation_path: animation[quiz.lesson_id] || null,
+      question: quiz.question,
+      check_answer: quiz.check_answer,
+      lesson_id: quiz.lesson_id,
+      animation_path: quiz.animation_path,
     }));
 
     res.json({ success: true, sessionId, quizzes: OX_quiz });
@@ -111,8 +120,12 @@ export const checkQuiz = async (req, res) => {
   }
 
   try {
+    // ✅ lesson_id, word, animation_path 포함된 퀴즈 정보 가져오기
     const [quizData] = await pool.query(
-      `SELECT quiz_id, check_answer FROM quizzes WHERE session_id = ?`,
+      `SELECT q.quiz_id, q.check_answer, q.lesson_id, l.word AS wrong_word, l.animation_path 
+       FROM quizzes q 
+       JOIN lessons l ON q.lesson_id = l.lesson_id 
+       WHERE q.session_id = ?`,
       [sessionId]
     );
 
@@ -132,35 +145,118 @@ export const checkQuiz = async (req, res) => {
       });
     }
 
+    // ✅ 채점
     const results = quizData.map((quiz) => {
       const userAnswer = answers.find((a) => a.quiz_id === quiz.quiz_id);
       const isCorrect =
         userAnswer &&
         typeof userAnswer.answer === "boolean" &&
-        quiz.check_answer === (userAnswer.answer ? 1 : 0); // 수정된 부분
+        quiz.check_answer === (userAnswer.answer ? 1 : 0);
 
       return {
         quiz_id: quiz.quiz_id,
+        lesson_id: quiz.lesson_id,
         isCorrect,
         message: isCorrect ? "정답" : "오답",
       };
     });
 
     const score = results.filter((result) => result.isCorrect).length;
-
+    //점수 저장
     await pool.query(
       `INSERT INTO quiz_scores (user_id, session_id, correct_count, total_questions) VALUES (?, ?, ?, ?)`,
       [userId, sessionId, score, quizData.length]
     );
 
-    res.json({
-      success: true,
-      score,
-      total: quizData.length,
-      results,
-    });
+    //출석 기록
+    await pool.query(
+      `INSERT INTO attendances (user_id, attend_date)
+   VALUES (?, CURDATE())
+   ON DUPLICATE KEY UPDATE status = TRUE`,
+      [userId]
+    );
+
+    //오답 저장
+    const wrongAnswers = results.filter((r) => !r.isCorrect);
+    if (wrongAnswers.length > 0) {
+      const values = wrongAnswers.map((data) => [
+        userId,
+        data.quiz_id,
+        sessionId,
+        data.lesson_id,
+      ]);
+      await pool.query(
+        `INSERT INTO wrong_answers(user_id, quiz_id, session_id, lesson_id) 
+        VALUES ?
+        ON DUPLICATE KEY UPDATE recorded_at = CURRENT_TIMESTAMP`,
+        [values]
+      );
+
+      res.json({
+        success: true,
+        score,
+        total: quizData.length,
+        results,
+      });
+    }
   } catch (error) {
     console.error("퀴즈 채점 오류:", error);
     res.status(500).json({ success: false, message: "채점 실패" });
+  }
+};
+
+export const wrongAnswers = async (req, res) => {
+  const userId = req.user_id;
+  if (!userId) {
+    return res.status(400).json({ message: "userId가 필요합니다" });
+  }
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT wa.quiz_id, wa.session_id, wa.lesson_id, l.word, l.animation_path, wa.recorded_at
+       FROM wrong_answers wa
+       JOIN lessons l ON l.lesson_id = wa.lesson_id
+       WHERE wa.user_id = ?`,
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      data: rows,
+    });
+  } catch (error) {
+    console.error("오답 목록 가져오기 실패:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "오답 목록을 가져오는데 실패했습니다.",
+    });
+  }
+};
+
+export const deleteWrongAnswers = async (req, res) => {
+  const userId = req.user_id;
+  const wrongAnswerId = req.params.wrongAnswer_id;
+
+  if (!userId || !wrongAnswerId) {
+    return res
+      .status(400)
+      .json({ message: "사용자 ID와 오답 ID가 모두 필요합니다. " });
+  }
+  const [wrongAnswers] = await pool.query(
+    `SELECT * FROM wrong_answers WHERE user_id =? and wrongAnswer_id = ?`,
+    [userId, wrongAnswerId]
+  );
+  if (wrongAnswers.length === 0) {
+    return res.status(404).json({ message: "저장된 오답 항목이 없습니다" });
+  }
+  try {
+    await pool.query(
+      `DELETE FROM wrong_answers WHERE user_id =? and wrongAnswer_id=? `,
+      [userId, wrongAnswerId]
+    );
+    res.status(200).json({ message: "오답 항목 삭제가 완료되었습니다." });
+  } catch (error) {
+    console.error("오답 삭제 실패:", error.message);
+    res.status(500).json({ message: "오답 항목 삭제 실패했습니다." });
   }
 };
