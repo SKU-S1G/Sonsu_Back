@@ -124,6 +124,14 @@ export const CompleteLesson = async (req, res) => {
         .json({ error: "해당 학습 기록을 찾을 수 없습니다." });
     }
 
+    // 출석 처리
+    await pool.query(
+      `INSERT INTO attendances (user_id, attend_date)
+         VALUES (?, CURDATE())
+         ON DUPLICATE KEY UPDATE status = TRUE`,
+      [userId]
+    );
+
     // 완료된 강의 정보를 가져오기
     const [completedLessons] = await pool.query(
       `SELECT lesson_id, status FROM user_lessons WHERE user_id = ? AND status = 'completed'`,
