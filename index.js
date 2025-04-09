@@ -35,6 +35,8 @@ import {
   continueLesson,
 } from "./controller/Progress.js";
 
+import { attendance } from "./controller/Attendance.js";
+
 dotenv.config();
 const app = express();
 const server = http.createServer(app);
@@ -103,6 +105,8 @@ app.delete("/review/delete/:saveId", authenticateToken, deleteSavedLesson);
 app.get("/progress/continue", authenticateToken, continueLesson);
 app.post("/progress/categories", authenticateToken, progressCategory);
 app.post("/progress/topics", authenticateToken, progressTopic);
+
+app.get("/attend", authenticateToken, attendance);
 
 server.listen(process.env.PORT, () => {
   console.log(`Listening on localhost: ${process.env.PORT}`);
