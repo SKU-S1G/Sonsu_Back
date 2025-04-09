@@ -169,12 +169,12 @@ export const checkQuiz = async (req, res) => {
     );
 
     //출석 기록
-    await pool.query(
-      `INSERT INTO attendances (user_id, attend_date)
-   VALUES (?, CURDATE())
-   ON DUPLICATE KEY UPDATE status = TRUE`,
-      [userId]
-    );
+    //   await pool.query(
+    //     `INSERT INTO attendances (user_id, attend_date)
+    //  VALUES (?, CURDATE())
+    //  ON DUPLICATE KEY UPDATE status = TRUE`,
+    //     [userId]
+    //   );
 
     //오답 저장
     const wrongAnswers = results.filter((r) => !r.isCorrect);
