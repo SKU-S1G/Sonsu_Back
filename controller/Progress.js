@@ -21,8 +21,11 @@ export const continueLesson = async (req, res) => {
     const lastLessonId = lastLesson[0].lesson_id;
     const nextLessonId = lastLessonId + 1;
     const [nextLesson] = await pool.query(
-      `SELECT * FROM lessons 
-         WHERE lesson_id = ?`,
+      `SELECT l.*, lc.category, ll.level
+       FROM lessons l
+       JOIN lesson_categories lc ON l.lessonCategory_id = lc.lessonCategory_id
+       JOIN lesson_levels ll ON lc.lessonLevel_id = ll.lessonLevel_id
+       WHERE l.lesson_id = ?`,
       [nextLessonId]
     );
     if (nextLesson.length === 0) {
