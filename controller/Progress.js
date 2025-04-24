@@ -76,3 +76,29 @@ export const progressCategory = async (req, res) => {
       .json({ message: "완료된 카테고리를 가져오는 데 실패했습니다." });
   }
 };
+
+export const progressPercentage = async (req, res) => {
+  const userId = req.user_id;
+  try {
+    const [[{ total }]] = await pool.query(
+      "SELECT COUNT(*) as total FROM lessons"
+    );
+
+    const [[{ completed }]] = await pool.query(
+      "SELECT COUNT(*) as completed FROM user_lessons WHERE user_id = ?",
+      [userId]
+    );
+
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    return res.status(200).json({
+      progress: `${progress}%`,
+    });
+  } catch (error) {
+    console.error("진행률 계산 오류:", error);
+    return res.status(500).json({
+      success: false,
+      message: "진행률 계산 중 오류가 발생했습니다.",
+    });
+  }
+};

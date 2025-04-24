@@ -33,9 +33,11 @@ import {
   progressCategory,
   progressTopic,
   continueLesson,
+  progressPercentage,
 } from "./controller/Progress.js";
 
 import { attendance } from "./controller/Attendance.js";
+// import { weeklyReport } from "./controller/Report.js";
 
 dotenv.config();
 const app = express();
@@ -105,9 +107,11 @@ app.delete("/review/delete/:saveId", authenticateToken, deleteSavedLesson);
 app.get("/progress/continue", authenticateToken, continueLesson);
 app.post("/progress/categories", authenticateToken, progressCategory);
 app.post("/progress/topics", authenticateToken, progressTopic);
+app.get("/progress/percentage", authenticateToken, progressPercentage);
 
 app.get("/attend", authenticateToken, attendance);
 
+// app.get("/mypage/report", authenticateToken, weeklyReport);
 server.listen(process.env.PORT, () => {
   console.log(`Listening on localhost: ${process.env.PORT}`);
 });
