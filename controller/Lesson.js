@@ -1,39 +1,90 @@
 import pool from "../database.js";
 import { fetchProgressCategory } from "../utils/Progress.js";
 
+// export const lessonLevel = async (req, res) => {
+//   const levelId = req.params.level_id;
+//   try {
+//     const [results] = await pool.query(
+//       "SELECT * FROM lesson_categories WHERE lessonLevel_id = ?",
+//       [levelId]
+//     );
+//     res.json(results);
+//     // console.log(results);
+//   } catch (err) {
+//     console.error(err);
+//     return res.status(500).send(err);
+//   }
+// };
+
 export const lessonLevel = async (req, res) => {
   const levelId = req.params.level_id;
+
   try {
-    const [results] = await pool.query(
-      "SELECT * FROM lesson_categories WHERE lessonLevel_id = ?",
+    const [categories] = await pool.query(
+      "SELECT lessonCategory_id, lessonLevel_id, category, part_number FROM lesson_categories WHERE lessonLevel_id = ?",
       [levelId]
     );
-    res.json(results);
-    // console.log(results);
+
+    if (!categories.length) {
+      return res.json({ categoriesWithWord: [] });
+    }
+
+    const categoryIds = categories.map((c) => c.lessonCategory_id);
+
+    const [lessons] = await pool.query(
+      "SELECT lesson_id, lessonCategory_id, word FROM lessons WHERE lessonCategory_id IN (?)",
+      [categoryIds]
+    );
+
+    const categoriesWithWord = categories.map((category) => ({
+      ...category,
+      words: lessons
+        .filter(
+          (lesson) => lesson.lessonCategory_id === category.lessonCategory_id
+        )
+        .map((lesson) => lesson.word),
+    }));
+    res.json({ categoriesWithWord });
   } catch (err) {
     console.error(err);
-    return res.status(500).send(err);
+    res.status(500).send({ error: "서버 에러가 발생했습니다." });
   }
 };
 
+// export const lessonTopic = async (req, res) => {
+//   const categoryId = req.params.category_id;
+//   const bucketName = "sonsustorage.firebasestorage.app";
+
+//   try {
+//     const [results] = await pool.query(
+//       "SELECT * FROM lessons WHERE lessonCategory_id = ?",
+//       [categoryId]
+//     );
+
+//     const updatedResults = results.map((lesson) => {
+//       if (lesson.animation_path.startsWith("gs://")) {
+//         let fileName = lesson.animation_path.split("/").pop();
+//         lesson.animation_path = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${fileName}?alt=media`;
+//       }
+//       return lesson;
+//     });
+//     res.json(updatedResults);
+//   } catch (err) {
+//     console.error(err);
+//     return res.status(500).send(err);
+//   }
+// };
+
 export const lessonTopic = async (req, res) => {
   const categoryId = req.params.category_id;
-  const bucketName = "sonsustorage.firebasestorage.app";
 
   try {
-    const [results] = await pool.query(
+    const [lesson] = await pool.query(
       "SELECT * FROM lessons WHERE lessonCategory_id = ?",
       [categoryId]
     );
 
-    const updatedResults = results.map((lesson) => {
-      if (lesson.animation_path.startsWith("gs://")) {
-        let fileName = lesson.animation_path.split("/").pop();
-        lesson.animation_path = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${fileName}?alt=media`;
-      }
-      return lesson;
-    });
-    res.json(updatedResults);
+    res.json(lesson);
   } catch (err) {
     console.error(err);
     return res.status(500).send(err);

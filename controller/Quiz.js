@@ -16,7 +16,7 @@ export const generateQuiz = async (req, res) => {
              FROM user_lessons ul
              JOIN lessons l ON ul.lesson_id = l.lesson_id
              WHERE ul.user_id = ? 
-             AND DATE(ul.lesson_date) = '2025-03-26'
+             AND DATE(ul.lesson_date) = CURDATE()
              AND ul.status = 'completed'
              ORDER BY RAND()  
              LIMIT 5`,
