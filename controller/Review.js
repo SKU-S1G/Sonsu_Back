@@ -39,7 +39,7 @@ export const fetchSavedLesson = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT us.userSaved_id, us.lesson_id, l.word, l.animation_path 
+      `SELECT us.userSaved_id, us.lesson_id, l.word, l.animation_path, l.lessonCategory_id 
          FROM user_saved us 
          JOIN lessons l ON us.lesson_id = l.lesson_id 
          WHERE us.user_id = ?`,

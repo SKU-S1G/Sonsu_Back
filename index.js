@@ -35,7 +35,7 @@ import {
   continueLesson,
   progressPercentage,
 } from "./controller/Progress.js";
-
+import { weeklyReport } from "./controller/Report.js";
 import { attendance } from "./controller/Attendance.js";
 // import { weeklyReport } from "./controller/Report.js";
 
@@ -111,7 +111,8 @@ app.get("/progress/percentage", authenticateToken, progressPercentage);
 
 app.get("/attend", authenticateToken, attendance);
 
-// app.get("/mypage/report", authenticateToken, weeklyReport);
+app.get("/mypage/report", authenticateToken, weeklyReport);
+
 server.listen(process.env.PORT, () => {
   console.log(`Listening on localhost: ${process.env.PORT}`);
 });
