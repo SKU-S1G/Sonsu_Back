@@ -61,17 +61,17 @@ export const deleteSavedLesson = async (req, res) => {
         .status(400)
         .json({ message: "사용자 ID와 저장된 강의 ID가 필요합니다." });
     }
-    const [savedLessson] = await pool.query(
-      `SELECT * FROM user_saved WHERE user_id = ? AND userSaved_id = ?`,
+    const [savedLesson] = await pool.query(
+      `SELECT * FROM user_saved WHERE user_id = ? AND lesson_id = ?`,
       [userId, saveId]
     );
-    if (savedLessson.length == 0) {
+    if (savedLesson.length == 0) {
       return res
         .status(404)
         .json({ message: "해당 즐겨찾기 항목이 존재하지 않습니다." });
     }
     await pool.query(
-      `DELETE FROM user_saved WHERE userSaved_id=? AND user_id = ? `,
+      `DELETE FROM user_saved WHERE lesson_id=? AND user_id = ? `,
       [saveId, userId]
     );
     res.status(200).json({ message: "즐겨찾기에서 삭제되었습니다." });

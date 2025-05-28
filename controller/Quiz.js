@@ -9,17 +9,15 @@ export const generateQuiz = async (req, res) => {
   }
 
   try {
-    const bucketName = "sonsustorage.firebasestorage.app";
-
     const [lessonData] = await pool.query(
       `SELECT ul.userLesson_id, l.lesson_id, l.word
-             FROM user_lessons ul
-             JOIN lessons l ON ul.lesson_id = l.lesson_id
-             WHERE ul.user_id = ? 
-             AND DATE(ul.lesson_date) = CURDATE()
-             AND ul.status = 'completed'
-             ORDER BY RAND()  
-             LIMIT 5`,
+       FROM user_lessons ul
+       JOIN lessons l ON ul.lesson_id = l.lesson_id
+       WHERE ul.user_id = ?
+         AND DATE(ul.lesson_date) = CURDATE()
+         AND ul.status = 'completed'
+       ORDER BY RAND()
+       LIMIT 5`,
       [userId]
     );
 
@@ -29,46 +27,46 @@ export const generateQuiz = async (req, res) => {
         .json({ success: false, message: "오늘 학습한 단어가 없습니다." });
     }
 
-    // OX 퀴즈 생성
+    if (lessonData.length < 5) {
+      return res.json({
+        success: true,
+        message: `오늘 학습한 단어가 ${lessonData.length}개입니다. 5문제 풀어주세요.`,
+      });
+    }
+    const learnedWords = lessonData.map((l) => l.word);
+
+    // ✅ lessonData에 포함되지 않은 단어 중에서 랜덤하게 5개 추출
     const [randomLessons] = await pool.query(
-      `SELECT word FROM lessons ORDER BY RAND() LIMIT 5`
+      `SELECT word FROM lessons
+       WHERE word NOT IN (?)
+       ORDER BY RAND()
+       LIMIT ?`,
+      [learnedWords, lessonData.length]
     );
 
     const lessonIds = lessonData.map((lesson) => lesson.lesson_id);
-    // console.log(lessonIds);
+
     const [animationData] = await pool.query(
       `SELECT lesson_id, animation_path FROM lessons WHERE lesson_id IN (?)`,
       [lessonIds]
     );
 
+    const animationMap = animationData.reduce((acc, item) => {
+      acc[item.lesson_id] = item.animation_path || null;
+      return acc;
+    }, {});
+
     const quizData = lessonData.map((lesson, index) => {
       const isCorrect = Math.random() < 0.5;
       const wrongWord = randomLessons[index]?.word || "잘못된 단어";
       const question = isCorrect ? lesson.word : wrongWord;
-      const animation = animationData.reduce((acc, item) => {
-        if (item.animation_path) {
-          if (item.animation_path.startsWith("gs://")) {
-            const fileName = encodeURIComponent(
-              item.animation_path.split("/").pop()
-            );
-            acc[
-              item.lesson_id
-            ] = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${fileName}?alt=media`;
-          } else {
-            acc[item.lesson_id] = item.animation_path;
-          }
-        } else {
-          acc[item.lesson_id] = null;
-        }
-        return acc;
-      }, {});
 
       return {
-        question: question,
+        question,
         check_answer: isCorrect,
         userLesson_id: lesson.userLesson_id,
         lesson_id: lesson.lesson_id,
-        animation_path: animation[lesson.lesson_id] || null,
+        animation_path: animationMap[lesson.lesson_id] || null,
       };
     });
 
@@ -78,8 +76,8 @@ export const generateQuiz = async (req, res) => {
     );
     const sessionId = sessionResult.insertId;
 
-    const quizInsertQuery = `INSERT INTO quizzes (session_id, userLesson_id,lesson_id, question, check_answer) VALUES ?`;
-    const quizValues = quizData.map((quiz, index) => [
+    const quizInsertQuery = `INSERT INTO quizzes (session_id, userLesson_id, lesson_id, question, check_answer) VALUES ?`;
+    const quizValues = quizData.map((quiz) => [
       sessionId,
       quiz.userLesson_id,
       quiz.lesson_id,
@@ -100,7 +98,7 @@ export const generateQuiz = async (req, res) => {
       lesson_id: quiz.lesson_id,
       animation_path: quiz.animation_path,
     }));
-
+    // console.log(" 생성된 퀴즈 데이터:", quizData);
     res.json({ success: true, sessionId, quizzes: OX_quiz });
   } catch (error) {
     console.error("OX 퀴즈 생성 오류:", error);
