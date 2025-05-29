@@ -211,9 +211,10 @@ export const wrongAnswers = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT wa.quiz_id, wa.session_id, wa.lesson_id, l.word, l.animation_path, wa.recorded_at
+      `SELECT wa.quiz_id, wa.session_id, wa.lesson_id,lc.part_number,lc.category, l.word, l.animation_path, wa.recorded_at
        FROM wrong_answers wa
        JOIN lessons l ON l.lesson_id = wa.lesson_id
+       JOIN lesson_categories lc ON l.lessonCategory_id = lc.lessonCategory_id 
        WHERE wa.user_id = ?`,
       [userId]
     );
