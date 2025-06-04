@@ -1,4 +1,5 @@
 import pool from "../database.js";
+import { addUserPoint } from "../utils/Point.js";
 
 export const generateQuiz = async (req, res) => {
   const userId = req.user_id;
@@ -161,18 +162,20 @@ export const checkQuiz = async (req, res) => {
 
     const score = results.filter((result) => result.isCorrect).length;
     //점수 저장
-    await pool.query(
+    const [scoreResult] = await pool.query(
       `INSERT INTO quiz_scores (user_id, session_id, correct_count, total_questions) VALUES (?, ?, ?, ?)`,
       [userId, sessionId, score, quizData.length]
     );
+    const scoreId = scoreResult.insertId;
 
-    //출석 기록
-    //   await pool.query(
-    //     `INSERT INTO attendances (user_id, attend_date)
-    //  VALUES (?, CURDATE())
-    //  ON DUPLICATE KEY UPDATE status = TRUE`,
-    //     [userId]
-    //   );
+    if (score >= 3) {
+      await addUserPoint({
+        user_id: userId,
+        points: 10,
+        reason: "quiz",
+        score_id: scoreId,
+      });
+    }
 
     //오답 저장
     const wrongAnswers = results.filter((r) => !r.isCorrect);
@@ -183,13 +186,13 @@ export const checkQuiz = async (req, res) => {
         sessionId,
         data.lesson_id,
       ]);
+
       await pool.query(
         `INSERT INTO wrong_answers(user_id, quiz_id, session_id, lesson_id) 
         VALUES ?
         ON DUPLICATE KEY UPDATE recorded_at = CURRENT_TIMESTAMP`,
         [values]
       );
-
       res.json({
         success: true,
         score,
@@ -211,7 +214,7 @@ export const wrongAnswers = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      `SELECT wa.quiz_id, wa.session_id, wa.lesson_id,lc.part_number,lc.category, l.word, l.animation_path, wa.recorded_at
+      `SELECT wa.quiz_id, wa.session_id, wa.lesson_id,lc.part_number,lc.category,l.step_number, l.word, l.animation_path, wa.recorded_at
        FROM wrong_answers wa
        JOIN lessons l ON l.lesson_id = wa.lesson_id
        JOIN lesson_categories lc ON l.lessonCategory_id = lc.lessonCategory_id 
@@ -221,7 +224,7 @@ export const wrongAnswers = async (req, res) => {
 
     res.json({
       success: true,
-      data: rows,
+      rows,
     });
   } catch (error) {
     console.error("오답 목록 가져오기 실패:", error.message);
