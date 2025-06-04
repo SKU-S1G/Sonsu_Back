@@ -1,5 +1,6 @@
 import pool from "../database.js";
 import { fetchProgressCategory } from "../utils/Progress.js";
+import { addUserPoint } from "../utils/Point.js";
 
 // export const lessonLevel = async (req, res) => {
 //   const levelId = req.params.level_id;
@@ -153,6 +154,29 @@ export const CompleteLesson = async (req, res) => {
       [userId, lessonId]
     );
 
+    if (result.affectedRows === 0) {
+      return res
+        .status(404)
+        .json({ error: "해당 학습 기록을 찾을 수 없습니다." });
+    }
+
+    const [userLessonRows] = await pool.query(
+      `
+      SELECT userLesson_id FROM user_lessons WHERE user_id = ? AND lesson_id = ?
+      `,
+      [userId, lessonId]
+    );
+
+    const userLessonRow = userLessonRows[0];
+    const userLessonId = userLessonRow?.userLesson_id;
+
+    await addUserPoint({
+      user_id: userId,
+      points: 20,
+      reason: "lesson",
+      userLesson_id: userLessonId,
+    });
+
     const completedCategories = await fetchProgressCategory(userId);
     // console.log("progressCategory 결과:", completedCategories);
 
@@ -169,20 +193,6 @@ export const CompleteLesson = async (req, res) => {
       console.error("WebSocket(io) 객체가 정의되지 않음");
     }
 
-    if (result.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ error: "해당 학습 기록을 찾을 수 없습니다." });
-    }
-
-    // 출석 처리
-    await pool.query(
-      `INSERT INTO attendances (user_id, attend_date)
-         VALUES (?, CURDATE())
-         ON DUPLICATE KEY UPDATE status = TRUE`,
-      [userId]
-    );
-
     // 완료된 강의 정보를 가져오기
     const [completedLessons] = await pool.query(
       `SELECT lesson_id, status FROM user_lessons WHERE user_id = ? AND status = 'completed'`,
@@ -197,7 +207,22 @@ export const CompleteLesson = async (req, res) => {
       console.error("WebSocket(io) 객체가 정의되지 않음");
     }
 
-    res.status(200).json({ message: "수강 완료" });
+    // 출석 처리
+    await pool.query(
+      `INSERT INTO attendances (user_id, attend_date)
+         VALUES (?, CURDATE())
+         ON DUPLICATE KEY UPDATE status = TRUE`,
+      [userId]
+    );
+
+    await addUserPoint({
+      user_id: userId,
+      points: 30,
+      reason: "attendance",
+      attend_date: new Date().toISOString().split("T")[0],
+    });
+
+    res.status(200).json({ message: "수강 완료 및 포인트 지급 완료" });
   } catch (err) {
     console.error("서버 오류:", err);
     return res.status(500).json({ error: "서버 오류" });
