@@ -75,11 +75,15 @@ export const login = async (req, res) => {
           [userInfo.user_id, refreshToken, expiresAt]
         );
 
+        /*
         res.cookie("accessToken", accessToken, {
-          httpOnly: false,
+          httpOnly: true,
           secure: false,
-          sameSite: "Lax",
+          sameSite: "None",
         });
+        */
+
+        //console.log("accessToken", accessToken.substring(0, 20));
 
         res.status(200).json({
           message: "Login Success",
@@ -96,10 +100,20 @@ export const login = async (req, res) => {
 };
 
 export const refreshToken = async (req, res) => {
+  /*
   const token = req.cookies.accessToken;
   if (!token) {
     return res.status(401).json({ message: "Access token 필요" });
   }
+  */
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Access token 필요" });
+  }
+
+  const token = authHeader.substring(7);
+
   try {
     const data = jwt.verify(token, process.env.ACCESS_SECRET);
     const [users] = await pool.query("SELECT * FROM users WHERE user_id = ?", [
@@ -147,11 +161,13 @@ export const refreshToken = async (req, res) => {
             { expiresIn: "60m", issuer: "suk" }
           );
 
+          /*
           res.cookie("accessToken", newAccessToken, {
-            httpOnly: false,
+            httpOnly: true,
             secure: false,
             sameSite: "None",
           });
+          */
 
           return res.status(200).json({ accessToken: newAccessToken });
         } catch (refreshError) {
@@ -178,12 +194,21 @@ export const refreshToken = async (req, res) => {
 };
 
 export const loginSuccess = async (req, res) => {
-  const token = req.cookies.accessToken;
-  console.log("요청 쿠키:", req.cookies);
+  /*
+  let token = req.cookies.accessToken;
 
   if (!token) {
     return res.status(401).json({ message: "로그인 필요" });
   }
+  */
+
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Access token 필요" });
+  }
+
+  const token = authHeader.substring(7);
 
   try {
     const data = jwt.verify(token, process.env.ACCESS_SECRET);
@@ -206,11 +231,19 @@ export const loginSuccess = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
+  /*
   const token = req.cookies.accessToken;
-
   if (!token) {
     return res.status(401).json({ message: "로그인 필요" });
   }
+  */
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Access token 필요" });
+  }
+
+  const token = authHeader.substring(7);
 
   try {
     const decoded = jwt.verify(token, process.env.ACCESS_SECRET);
@@ -227,11 +260,13 @@ export const logout = async (req, res) => {
         .json({ message: "해당 사용자에 대한 Refresh Token이 없습니다." });
     }
 
+    /*
     res.clearCookie("accessToken", {
-      httpOnly: false,
+      httpOnly: true,
       secure: false,
       sameSite: "None",
     });
+    */
 
     res.status(200).json({ message: "Logout Success" });
   } catch (error) {
