@@ -2,7 +2,7 @@ import pool from "../database.js";
 import { fetchProgressCategory } from "../utils/Progress.js";
 
 export const continueLesson = async (req, res) => {
-  const userId = req.user_id;
+  const userId = req.user.id;
   if (!userId) {
     return res.status(400).json({ message: "사용자ID가 없습니다." });
   }

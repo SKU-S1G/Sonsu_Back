@@ -24,8 +24,8 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const [result] = await pool.query(
-      "INSERT INTO users (username, login_id, password, email) VALUES (?, ?, ?, ?)",
-      [username, loginId, hashedPassword, email]
+      "INSERT INTO users (username, login_id, password, email, role) VALUES (?, ?, ?, ?, ?)",
+      [username, loginId, hashedPassword, email, "user"]
     );
     res.status(201).json({ message: "회원가입 성공" });
   } catch (error) {
@@ -52,6 +52,7 @@ export const login = async (req, res) => {
             id: userInfo.user_id,
             loginId: userInfo.login_id,
             email: userInfo.email,
+            role: userInfo.role,
           },
           process.env.ACCESS_SECRET,
           { expiresIn: "60m", issuer: "suk" }
@@ -62,6 +63,7 @@ export const login = async (req, res) => {
             id: userInfo.user_id,
             loginId: userInfo.login_id,
             email: userInfo.email,
+            role: userInfo.role,
           },
           process.env.REFRESH_SECRET,
           { expiresIn: "24h", issuer: "suk" }
@@ -74,9 +76,9 @@ export const login = async (req, res) => {
         );
 
         res.cookie("accessToken", accessToken, {
-          httpOnly: true,
+          httpOnly: false,
           secure: false,
-          sameSite: "None",
+          sameSite: "Lax",
         });
 
         res.status(200).json({
@@ -139,14 +141,16 @@ export const refreshToken = async (req, res) => {
               id: refreshTokenData.id,
               loginId: refreshTokenData.loginId,
               email: refreshTokenData.email,
+              role: userInfo.role,
             },
             process.env.ACCESS_SECRET,
             { expiresIn: "60m", issuer: "suk" }
           );
 
           res.cookie("accessToken", newAccessToken, {
-            httpOnly: true,
+            httpOnly: false,
             secure: false,
+            sameSite: "None",
           });
 
           return res.status(200).json({ accessToken: newAccessToken });
@@ -175,6 +179,7 @@ export const refreshToken = async (req, res) => {
 
 export const loginSuccess = async (req, res) => {
   const token = req.cookies.accessToken;
+  console.log("요청 쿠키:", req.cookies);
 
   if (!token) {
     return res.status(401).json({ message: "로그인 필요" });
@@ -223,10 +228,9 @@ export const logout = async (req, res) => {
     }
 
     res.clearCookie("accessToken", {
-      path: "/",
-      httpOnly: true,
+      httpOnly: false,
       secure: false,
-      sameStie: "None",
+      sameSite: "None",
     });
 
     res.status(200).json({ message: "Logout Success" });
