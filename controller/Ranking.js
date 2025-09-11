@@ -13,7 +13,6 @@ export const weeklyRanking = async (req, res) => {
          ORDER BY r.week_points DESC`,
       [weekStartDate]
     );
-
     res.status(200).json(rows);
   } catch (err) {
     console.error("랭킹 조회 오류:", err);

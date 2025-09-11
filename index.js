@@ -38,6 +38,19 @@ import {
 import { weeklyReport } from "./controller/Report.js";
 import { weeklyRanking } from "./controller/Ranking.js";
 import { attendance } from "./controller/Attendance.js";
+import { isAdmin } from "./middlewares/authMiddleware.js";
+import {
+  generateClass,
+  deleteClass,
+  inviteClass,
+  addLessons,
+  deletelessons,
+  selectLessons,
+  selectClass,
+  selectClassAll,
+  getUsers,
+} from "./controller/Class.js";
+import { editClass } from "./controller/Class.js";
 // import { weeklyReport } from "./controller/Report.js";
 
 dotenv.config();
@@ -46,7 +59,11 @@ const server = http.createServer(app);
 
 const io = new SocketIO(server, {
   cors: {
-    origin: ["http://192.168.45.70:3000", "http://localhost:8081"],
+    origin: [
+      "http://192.168.45.217:8081",
+      "http://localhost:8081",
+      "http://localhost:3000",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -71,7 +88,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: ["http://192.168.45.217:8081", "http://localhost:8081"],
+    origin: [
+      "http://192.168.45.217:8081",
+      "http://localhost:8081",
+      "http://localhost:3000",
+    ],
     methods: ["GET", "POST"],
     credentials: true,
   })
@@ -114,7 +135,17 @@ app.get("/attend", authenticateToken, attendance);
 
 app.get("/mypage/report", authenticateToken, weeklyReport);
 app.get("/mypage/ranking", weeklyRanking);
+app.post("/class/generate", authenticateToken, isAdmin, generateClass);
+app.delete("/class/delete/:classId", authenticateToken, isAdmin, deleteClass);
+app.patch("/class/edit/:classId", authenticateToken, isAdmin, editClass);
+app.post("/class/:classId/invite", authenticateToken, isAdmin, inviteClass);
+app.post("/class/:classId/add", authenticateToken, isAdmin, addLessons);
+app.delete("/class/:classId/delete", authenticateToken, isAdmin, deletelessons);
 
+app.get("/class/lessons", authenticateToken, selectLessons);
+app.get("/class/:classId/select", authenticateToken, isAdmin, selectClass);
+app.get("/class/selectAll", authenticateToken, isAdmin, selectClassAll);
+app.get("/class/user", authenticateToken, isAdmin, getUsers);
 server.listen(process.env.PORT, () => {
   console.log(`Listening on localhost: ${process.env.PORT}`);
 });
