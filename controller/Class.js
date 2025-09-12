@@ -48,7 +48,7 @@ export const selectClass = async (req, res) => {
 export const selectClassAll = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT class_name, description, class_code FROM classes;`
+      `SELECT class_id, class_name, description, class_code, color_id FROM classes;`
     );
 
     if (rows.length === 0) {
