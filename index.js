@@ -49,6 +49,7 @@ import {
   selectClass,
   selectClassAll,
   getUsers,
+  addCategories,
 } from "./controller/Class.js";
 import { editClass } from "./controller/Class.js";
 // import { weeklyReport } from "./controller/Report.js";
@@ -141,12 +142,14 @@ app.delete("/class/delete/:classId", authenticateToken, isAdmin, deleteClass);
 app.patch("/class/edit/:classId", authenticateToken, isAdmin, editClass);
 app.post("/class/:classId/invite", authenticateToken, isAdmin, inviteClass);
 app.post("/class/:classId/add", authenticateToken, isAdmin, addLessons);
-app.delete("/class/:classId/delete", authenticateToken, isAdmin, deletelessons);
 
+app.delete("/class/:classId/delete", authenticateToken, isAdmin, deletelessons);
 app.get("/class/lessons", authenticateToken, selectLessons);
 app.get("/class/:classId/select", authenticateToken, isAdmin, selectClass);
 app.get("/class/selectAll", authenticateToken, isAdmin, selectClassAll);
 app.get("/class/user", authenticateToken, isAdmin, getUsers);
+
+app.post("/class/:classId/addCate", authenticateToken, isAdmin, addCategories);
 server.listen(process.env.PORT, () => {
   console.log(`Listening on localhost: ${process.env.PORT}`);
 });

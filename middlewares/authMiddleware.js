@@ -18,6 +18,7 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, process.env.ACCESS_SECRET, (err, user) => {
     if (err) return res.status(403).json({ message: "유효하지 않은 토큰" });
+    req.user = user;
     req.user_id = user.id;
     req.role = user.role;
     next();
