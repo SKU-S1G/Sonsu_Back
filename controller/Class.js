@@ -269,7 +269,7 @@ export const selectLessons = async (req, res) => {
 };
 */
 
-export const selectLessons = async (req, res) => {
+export const selLessonsUser = async (req, res) => {
   const memberId = req.user_id;
 
   try {
@@ -322,6 +322,51 @@ export const selectLessons = async (req, res) => {
   }
 };
 
+export const selLessonsAdmin = async (req, res) => {
+  const { classId } = req.params;
+
+  try {
+    const [rows] = await pool.query(
+      `
+    SELECT cl.class_id, cg.member_id, l.lesson_id, l.word, l.animation_path, lc.lessonCategory_id, lc.part_number, lc.category,
+    ROW_NUMBER() OVER (PARTITION BY l.lessonCategory_id ORDER BY cl.created_at ASC) AS step_number
+    FROM class_lessons cl
+    JOIN class_groups cg ON cl.class_id = cg.class_id
+    JOIN lessons l ON cl.lesson_id = l.lesson_id
+    JOIN lesson_categories lc ON l.lessonCategory_id = lc.lessonCategory_id
+    WHERE cg.class_id = ?;
+      `,
+      [classId]
+    );
+
+    const grouped = rows.reduce((acc, row) => {
+      const categoryId = row.lessonCategory_id;
+      if (!acc[categoryId]) {
+        acc[categoryId] = {
+          id: categoryId,
+          categoryName: row.category,
+          partNumber: row.part_number,
+          lessons: [],
+        };
+      }
+
+      acc[categoryId].lessons.push({
+        lessonId: row.lesson_id,
+        word: row.word,
+        animationPath: row.animation_path,
+        stepNumber: row.step_number,
+      });
+
+      return acc;
+    }, {});
+
+    return res.status(200).json(Object.values(grouped));
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "불러오기 실패하였습니다." });
+  }
+};
+
 export const addCategories = async (req, res) => {
   const { classId } = req.params;
   const { categoryIds } = req.body;
@@ -331,13 +376,13 @@ export const addCategories = async (req, res) => {
   }
 
   try {
-    const uqCategories = [...new Set(categoryIds)];
+    const uq_Categories = [...new Set(categoryIds)];
 
     const [lessons] = await pool.query(
       `SELECT lesson_id, lessonCategory_id 
        FROM lessons 
        WHERE lessonCategory_id IN (?)`,
-      [uqCategories]
+      [uq_Categories]
     );
 
     if (lessons.length === 0) {
@@ -366,5 +411,48 @@ export const addCategories = async (req, res) => {
     }
 
     return res.status(500).json({ message: "카테고리 추가 실패" });
+  }
+};
+
+export const getUsersClass = async (req, res) => {
+  const { classId } = req.params;
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT class_id, member_id, username
+       FROM class_groups cg
+       JOIN users u ON u.user_id = cg.member_id
+       WHERE class_id = ?`,
+      [classId]
+    );
+
+    return res.status(200).json({
+      message: "사용자 정보를 불러왔습니다.",
+      users: rows,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "사용자 정보 불러오기 실패" });
+  }
+};
+
+export const deleteUserClass = async (req, res) => {
+  const { classId } = req.params;
+  const { memberIds } = req.body;
+
+  if (!Array.isArray(memberIds) || memberIds.length === 0) {
+    return res.status(400).json({ message: "삭제할 사용자를 선택해주세요." });
+  }
+
+  try {
+    const result = await pool.query(
+      `DELETE FROM class_groups WHERE class_id = ? AND member_id IN (?)`,
+      [classId, memberIds]
+    );
+
+    return res.status(200).json({ message: "사용자 삭제 성공했습니다." });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "사용자 삭제 실패" });
   }
 };
