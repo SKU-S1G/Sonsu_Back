@@ -328,7 +328,7 @@ export const selLessonsAdmin = async (req, res) => {
   try {
     const [rows] = await pool.query(
       `
-    SELECT cl.class_id, cg.member_id, l.lesson_id, l.word, l.animation_path, lc.lessonCategory_id, lc.part_number, lc.category, lc.lessonLevel_id
+    SELECT cl.class_id, cg.member_id, l.lesson_id, l.word, l.animation_path, lc.lessonCategory_id, lc.part_number, lc.category, lc.lessonLevel_id,
     ROW_NUMBER() OVER (PARTITION BY l.lessonCategory_id ORDER BY cl.created_at ASC) AS step_number
     FROM class_lessons cl
     JOIN class_groups cg ON cl.class_id = cg.class_id
