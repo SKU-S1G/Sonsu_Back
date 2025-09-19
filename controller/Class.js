@@ -394,7 +394,7 @@ export const addCategories = async (req, res) => {
     const values = lessons.map((l) => [classId, l.lesson_id]);
 
     await pool.query(
-      `INSERT INTO class_lessons (class_id, lesson_id) VALUES ?`,
+      `INSERT IGNORE INTO class_lessons (class_id, lesson_id) VALUES ?`,
       [values]
     );
 
