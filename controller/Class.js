@@ -1,5 +1,6 @@
 import pool from "../database.js";
 import { generateCode } from "../utils/Code.js";
+import { lessonLevel } from "./Lesson.js";
 
 export const generateClass = async (req, res) => {
   const { className, description, colorId } = req.body;
@@ -346,6 +347,7 @@ export const selLessonsAdmin = async (req, res) => {
           id: categoryId,
           categoryName: row.category,
           partNumber: row.part_number,
+          lessonLevel: row.lessonLevel_id,
           lessons: [],
         };
       }
@@ -417,7 +419,7 @@ export const addCategories = async (req, res) => {
 export const delCategories = async (req, res) => {
   const { classId } = req.params;
   const { categoryIds } = req.body;
-
+  console.log("삭제 요청 categoryIds:", categoryIds);
   if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
     return res.status(400).json({ message: "삭제할 카테고리를 선택해주세요." });
   }

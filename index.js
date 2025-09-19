@@ -163,7 +163,7 @@ app.delete(
   deleteUserClass
 );
 app.delete(
-  "/class/:classId/delCate;",
+  "/class/:classId/delCate",
   authenticateToken,
   isAdmin,
   delCategories
