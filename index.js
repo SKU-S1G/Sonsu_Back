@@ -53,6 +53,7 @@ import {
   selLessonsAdmin,
   getUsersClass,
   deleteUserClass,
+  delCategories,
 } from "./controller/Class.js";
 import { editClass } from "./controller/Class.js";
 // import { weeklyReport } from "./controller/Report.js";
@@ -161,7 +162,12 @@ app.delete(
   isAdmin,
   deleteUserClass
 );
-
+app.delete(
+  "/class/:classId/delCate;",
+  authenticateToken,
+  isAdmin,
+  delCategories
+);
 server.listen(process.env.PORT, () => {
   console.log(`Listening on localhost: ${process.env.PORT}`);
 });

@@ -328,7 +328,7 @@ export const selLessonsAdmin = async (req, res) => {
   try {
     const [rows] = await pool.query(
       `
-    SELECT cl.class_id, cg.member_id, l.lesson_id, l.word, l.animation_path, lc.lessonCategory_id, lc.part_number, lc.category,
+    SELECT cl.class_id, cg.member_id, l.lesson_id, l.word, l.animation_path, lc.lessonCategory_id, lc.part_number, lc.category, lc.lessonLevel_id
     ROW_NUMBER() OVER (PARTITION BY l.lessonCategory_id ORDER BY cl.created_at ASC) AS step_number
     FROM class_lessons cl
     JOIN class_groups cg ON cl.class_id = cg.class_id
@@ -411,6 +411,48 @@ export const addCategories = async (req, res) => {
     }
 
     return res.status(500).json({ message: "카테고리 추가 실패" });
+  }
+};
+
+export const delCategories = async (req, res) => {
+  const { classId } = req.params;
+  const { categoryIds } = req.body;
+
+  if (!Array.isArray(categoryIds) || categoryIds.length === 0) {
+    return res.status(400).json({ message: "삭제할 카테고리를 선택해주세요." });
+  }
+
+  try {
+    const uq_Categories = [...new Set(categoryIds)];
+
+    const [lessons] = await pool.query(
+      `SELECT lesson_id, lessonCategory_id 
+       FROM lessons 
+       WHERE lessonCategory_id IN (?)`,
+      [uq_Categories]
+    );
+
+    if (lessons.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "해당 카테고리에 레슨이 없습니다." });
+    }
+
+    const lessonIds = lessons.map((l) => l.lesson_id);
+
+    await pool.query(
+      `DELETE FROM class_lessons 
+       WHERE class_id = ? 
+         AND lesson_id IN (?)`,
+      [classId, lessonIds]
+    );
+
+    return res.status(200).json({
+      message: "해당 카테고리의 레슨들이 클래스에서 삭제되었습니다.",
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "카테고리 삭제 실패" });
   }
 };
 
