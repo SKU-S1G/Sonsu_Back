@@ -135,12 +135,12 @@ app.delete("/review/delete/:saveId", authenticateToken, deleteSavedLesson);
 app.get("/progress/continue", authenticateToken, continueLesson);
 app.post("/progress/categories", authenticateToken, progressCategory);
 app.post("/progress/topics", authenticateToken, progressTopic);
+
 app.get("/progress/percentage", authenticateToken, progressPercentage);
-
 app.get("/attend", authenticateToken, attendance);
-
 app.get("/mypage/report", authenticateToken, weeklyReport);
 app.get("/mypage/ranking", weeklyRanking);
+
 app.post("/class/generate", authenticateToken, isAdmin, generateClass);
 app.delete("/class/delete/:classId", authenticateToken, isAdmin, deleteClass);
 app.patch("/class/edit/:classId", authenticateToken, isAdmin, editClass);

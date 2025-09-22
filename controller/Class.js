@@ -328,15 +328,14 @@ export const selLessonsAdmin = async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      `
-    SELECT cl.class_id, cg.member_id, l.lesson_id, l.word, l.animation_path, lc.lessonCategory_id, lc.part_number, lc.category, lc.lessonLevel_id,
-    ROW_NUMBER() OVER (PARTITION BY l.lessonCategory_id ORDER BY cl.created_at ASC) AS step_number
-    FROM class_lessons cl
-    JOIN class_groups cg ON cl.class_id = cg.class_id
-    JOIN lessons l ON cl.lesson_id = l.lesson_id
-    JOIN lesson_categories lc ON l.lessonCategory_id = lc.lessonCategory_id
-    WHERE cg.class_id = ?;
-      `,
+      `SELECT l.lesson_id, l.word, l.animation_path, lc.lessonCategory_id, 
+              lc.part_number, lc.category, lc.lessonLevel_id,
+              ROW_NUMBER() OVER (PARTITION BY l.lessonCategory_id ORDER BY cl.created_at ASC) AS step_number
+       FROM class_lessons cl
+       JOIN lessons l ON cl.lesson_id = l.lesson_id
+       JOIN lesson_categories lc ON l.lessonCategory_id = lc.lessonCategory_id
+       WHERE cl.class_id = ?
+       ORDER BY lc.lessonCategory_id, cl.created_at`,
       [classId]
     );
 
@@ -365,7 +364,7 @@ export const selLessonsAdmin = async (req, res) => {
     return res.status(200).json(Object.values(grouped));
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: "불러오기 실패하였습니다." });
+    return res.status(500).json({ message: "불러오기 실패" });
   }
 };
 
@@ -381,9 +380,7 @@ export const addCategories = async (req, res) => {
     const uq_Categories = [...new Set(categoryIds)];
 
     const [lessons] = await pool.query(
-      `SELECT lesson_id, lessonCategory_id 
-       FROM lessons 
-       WHERE lessonCategory_id IN (?)`,
+      `SELECT lesson_id FROM lessons WHERE lessonCategory_id IN (?)`,
       [uq_Categories]
     );
 
@@ -393,25 +390,32 @@ export const addCategories = async (req, res) => {
         .json({ message: "해당 카테고리에 레슨이 없습니다." });
     }
 
-    const values = lessons.map((l) => [classId, l.lesson_id]);
+    const lessonIds = lessons.map((l) => l.lesson_id);
+    const [existingLessons] = await pool.query(
+      `SELECT lesson_id FROM class_lessons WHERE class_id = ? AND lesson_id IN (?)`,
+      [classId, lessonIds]
+    );
 
+    const existingIds = new Set(existingLessons.map((l) => l.lesson_id));
+    const newLessons = lessons.filter((l) => !existingIds.has(l.lesson_id));
+
+    if (newLessons.length === 0) {
+      return res
+        .status(400)
+        .json({ message: "모든 레슨이 이미 추가되어 있습니다." });
+    }
+
+    const values = newLessons.map((l) => [classId, l.lesson_id]);
     await pool.query(
-      `INSERT IGNORE INTO class_lessons (class_id, lesson_id) VALUES ?`,
+      `INSERT INTO class_lessons (class_id, lesson_id) VALUES ?`,
       [values]
     );
 
     return res.status(201).json({
-      message: "해당 레슨들이 클래스에 추가되었습니다.",
+      message: "레슨이 추가되었습니다.",
     });
   } catch (err) {
     console.error(err);
-
-    if (err.code === "ER_DUP_ENTRY") {
-      return res.status(400).json({
-        message: "이미 추가된 카테고리/레슨이 포함되어 있습니다.",
-      });
-    }
-
     return res.status(500).json({ message: "카테고리 추가 실패" });
   }
 };
