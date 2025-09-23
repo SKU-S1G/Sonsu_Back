@@ -132,9 +132,9 @@ export const startLesson = async (req, res) => {
       }
     }
 
-    // INSERT 시 lessonCategory_id 추가
+    // INSERT 시 lessonCategory_id 추가 (중복 방지)
     await pool.query(
-      "INSERT INTO user_lessons (user_id, lesson_id, lessonCategory_id, status) VALUES (?, ?, ?, 'in_progress')",
+      "INSERT INTO user_lessons (user_id, lesson_id, lessonCategory_id, status) VALUES (?, ?, ?, 'in_progress')\n       ON DUPLICATE KEY UPDATE\n         lessonCategory_id = VALUES(lessonCategory_id),\n         status = IF(user_lessons.status = 'completed', 'completed', 'in_progress')",
       [userId, lessonId, lessonCategoryId]
     );
 
@@ -151,16 +151,34 @@ export const CompleteLesson = async (req, res) => {
   const userId = req.user_id;
   const { lessonId } = req.body;
 
+  console.log(
+    `[CompleteLesson] 요청 - userId: ${userId}, lessonId: ${lessonId}`
+  );
+
   try {
+    // 먼저 이미 완료된 강의인지 확인
+    const [existing] = await pool.query(
+      "SELECT status FROM user_lessons WHERE user_id = ? AND lesson_id = ?",
+      [userId, lessonId]
+    );
+
+    if (existing.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "해당 학습 기록을 찾을 수 없습니다." });
+    }
+
+    if (existing[0].status === "completed") {
+      return res.status(200).json({ message: "이미 완료된 강의입니다." });
+    }
+
     const [result] = await pool.query(
-      "UPDATE user_lessons SET status = 'completed' WHERE user_id = ? AND lesson_id = ?",
+      "UPDATE user_lessons SET status = 'completed' WHERE user_id = ? AND lesson_id = ? AND status != 'completed'",
       [userId, lessonId]
     );
 
     if (result.affectedRows === 0) {
-      return res
-        .status(404)
-        .json({ error: "해당 학습 기록을 찾을 수 없습니다." });
+      return res.status(409).json({ error: "강의 완료 처리에 실패했습니다." });
     }
 
     const [userLessonRows] = await pool.query(
@@ -179,6 +197,9 @@ export const CompleteLesson = async (req, res) => {
       reason: "lesson",
       userLesson_id: userLessonId,
     });
+    console.log(
+      `[CompleteLesson] 레슨 포인트 지급 완료 - userId: ${userId}, points: 20`
+    );
 
     const completedCategories = await fetchProgressCategory(userId);
     // console.log("progressCategory 결과:", completedCategories);
@@ -224,6 +245,9 @@ export const CompleteLesson = async (req, res) => {
       reason: "attendance",
       attend_date: new Date().toISOString().split("T")[0],
     });
+    console.log(
+      `[CompleteLesson] 출석 포인트 지급 완료 - userId: ${userId}, points: 30`
+    );
 
     res.status(200).json({ message: "수강 완료 및 포인트 지급 완료" });
   } catch (err) {
