@@ -43,7 +43,10 @@ export const lessonLevel = async (req, res) => {
         .filter(
           (lesson) => lesson.lessonCategory_id === category.lessonCategory_id
         )
-        .map((lesson) => lesson.word),
+        .map((lesson) => ({
+          lessonId: lesson.lesson_id,
+          word: lesson.word,
+        })),
     }));
     res.json({ categoriesWithWord });
   } catch (err) {
