@@ -1,6 +1,14 @@
 import pool from "../database.js";
 import { generateCode } from "../utils/Code.js";
 import { lessonLevel } from "./Lesson.js";
+import { fetchReportData, weeklyPromptData } from "../utils/Report.js";
+import { config } from "dotenv";
+import OpenAI from "openai";
+
+config();
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export const generateClass = async (req, res) => {
   const { className, description, colorId } = req.body;
@@ -502,5 +510,75 @@ export const deleteUserClass = async (req, res) => {
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: "사용자 삭제 실패" });
+  }
+};
+
+export const getMypage = async (req, res) => {
+  const { memberId } = req.params;
+
+  // 접근 제어: 본인 또는 관리자만 허용 (필요 시 조정 가능)
+  if (!req.user_id) {
+    return res.status(401).json({ message: "로그인 필요" });
+  }
+  if (String(req.user_id) !== String(memberId) && req.role !== "admin") {
+    return res.status(403).json({ message: "접근 권한이 없습니다." });
+  }
+
+  try {
+    // 진행률
+    const [[{ total }]] = await pool.query(
+      "SELECT COUNT(*) as total FROM lessons"
+    );
+    const [[{ completed }]] = await pool.query(
+      "SELECT COUNT(*) as completed FROM user_lessons WHERE user_id = ?",
+      [memberId]
+    );
+    const progress = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    // 출석
+    const [attendanceRecords] = await pool.query(
+      "SELECT * FROM attendances WHERE user_id = ? ORDER BY attend_date DESC",
+      [memberId]
+    );
+
+    // 주간 리포트 (GPT)
+    let report = null;
+    let lessonCount = 0;
+    try {
+      const data = await fetchReportData(memberId);
+      lessonCount = data.lessonCount;
+      const prompt = weeklyPromptData(data);
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        temperature: 0.7,
+        max_tokens: 500,
+        messages: [
+          {
+            role: "system",
+            content:
+              "당신은 교육 분석 도우미입니다. 사용자에게 친절하면서도 핵심만 요약한 주간 리포트를 작성해주세요. 너무 길거나 장황하지 않게 해주세요.",
+          },
+          {
+            role: "user",
+            content: prompt + "\n\n리포트는 간결하고 핵심 위주로 작성해주세요.",
+          },
+        ],
+      });
+      report = completion.choices[0]?.message?.content || null;
+    } catch (gptErr) {
+      console.error("주간 리포트 생성 실패:", gptErr);
+    }
+
+    return res.status(200).json({
+      progress: `${progress}%`,
+      attendance: attendanceRecords,
+      report,
+      lessonCount,
+    });
+  } catch (err) {
+    console.error(err);
+    return res
+      .status(500)
+      .json({ message: "마이페이지 통합 데이터 조회 실패" });
   }
 };

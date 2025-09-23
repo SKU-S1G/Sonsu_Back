@@ -56,6 +56,7 @@ import {
   delCategories,
 } from "./controller/Class.js";
 import { editClass } from "./controller/Class.js";
+import { getMypage } from "./controller/Class.js";
 // import { weeklyReport } from "./controller/Report.js";
 
 dotenv.config();
@@ -168,6 +169,9 @@ app.delete(
   isAdmin,
   delCategories
 );
+
+app.get("/class/:memberId/mypage", authenticateToken, getMypage);
+
 server.listen(process.env.PORT, () => {
   console.log(`Listening on localhost: ${process.env.PORT}`);
 });
